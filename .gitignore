@@ -1,0 +1,16 @@
+datasets/AM.txt
+datasets/KY.txt
+datasets/KZ.txt
+datasets/RU.txt
+datasets/admin1CodesASCII.txt
+datasets/alternateNamesV2.txt
+datasets/cities15000.txt
+datasets/countryInfo.txt
+datasets/geo_test.csv
+datasets/iso-languagecodes.txt
+datasets/readme.txt
+
+datasets/*
+
+.env
+scripts/.env
