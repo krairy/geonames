@@ -14,3 +14,4 @@ datasets/*
 
 .env
 scripts/.env
+scripts/tests.ipynb
