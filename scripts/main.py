@@ -1,5 +1,7 @@
 from transliterate import slugify, detect_language
 import pandas as pd
+from thefuzz import process
+import numpy as np
 
 
 def connect_to_db():
@@ -13,6 +15,7 @@ def connect_to_db():
     from sqlalchemy.exc import SQLAlchemyError
     from sqlalchemy.sql import text
 
+    # Take the data from the .env file
     USR = os.getenv("USR")  # FOR GODS' SAKE NEVER CALL an env variable "USERNAME"
     PWD = os.getenv("PWD")
     DB_HOST = os.getenv("DB_HOST")
@@ -42,31 +45,48 @@ def connect_to_db():
         print(f"Connection established: {DATABASE['database']} на {DATABASE['host']}")
     except SQLAlchemyError as e:
         print(f"Connection error: {e}")
+    return engine
 
 
-def main(query, low_memory: bool = True, weight_mode: str = "exp"):
+def search(query, k=10):
+    "The rapid fuzzy search"
+    if detect_language(query) is not None:
+        query = slugify(query)
+    scores = {}  # container for match scores for each city
+
+    for (
+        ind,
+        name_list,
+    ) in (
+        d.items()
+    ):  ## for each city calculate similarity scores with evry alternative name
+        _ = np.array(process.extract(query, name_list))
+
+        scores[ind] = _[:, 1].astype(int).sum()  # sum up the scores...
+        scores[ind] /= len(_)  # ...and normalize by the number of the alternative names
+
+    sorted_scores = dict(
+        sorted(scores.items(), key=lambda item: item[1], reverse=True)
+    )  # sorting the name groups by the match score
+    indexes = list(sorted_scores)[:k]  # select the DatFrame indicies of the top k
+    result = df.loc[indexes]  # return the maches in the desired form
+    result.insert(
+        1, column="score", value=list(sorted_scores.values())[:k]
+    )  # insert the scores
+    return result
+
+
+def search_lowmem(query, k: int=10, weight_mode: str="exp", ):
     """
-    Function that searches city names similar to the query string. Takes alternative names into account.
-
-    Parameters
-    ----------
-    query : the query string
-
-    weight_mode={None, 'sq', 'exp'}, default 'exp'
-        * None: do not weight closer matches
-        * 'sq': apply parabolic weighting to the similarity scores
-        * 'exp': apply exponential weighting to the similarity scores
-
-    """
-
-
-def search_exp_lowmem(query, k=10):
-    """
-    Perform a low-memory search for cities based on a given query.
+    Perform a low-memory fuzzy search for cities based on a given query.
 
     Parameters:
     - query (str): The search query, representing the city name or an alternative name.
     - k (int, optional): The number of top matching cities to retrieve. Defaults to 10.
+    - weight_mode={None, 'sq', 'exp'} (str, optional): 
+        * None: do not weight closer matches
+        * 'sq': apply parabolic weighting to the similarity scores
+        * 'exp': apply exponential weighting to the similarity scores
 
     Returns:
     - pd.DataFrame: A DataFrame containing information about the top matching cities,
@@ -80,15 +100,16 @@ def search_exp_lowmem(query, k=10):
     and joined with additional information from the 'countryInfo' dataset.
 
     Example:
-    >>> result_df = search_exp_lowmem("New York", k=5)
+    >>> result_df = search_exp_lowmem("Мфсква", k=5)
     >>> print(result_df)
 
     Note:
     This function assumes the existence of a 'cities15000' table with columns
     geonameid, country_code, name, and asciiname, and a 'countryInfo' table with
-    columns ISO and Country. The database connection 'engine' should be available.
+    columns ISO and Country.
     """
-    # Function implementation...
+
+    global engine
     if detect_language(query) is not None:
         query = slugify(query)
     scores = {}  # container for match scores for each city
@@ -126,3 +147,25 @@ def search_exp_lowmem(query, k=10):
     qres = pd.read_sql_query(query, con=engine).drop_duplicates()
 
     return pd.merge(qres, scores_df, on="geonameid", how="right")
+
+
+def main(query, low_memory: bool = True, weight_mode: str = "exp"):
+    """
+    This module searches city names similar to the query string. Takes alternative names into account.
+
+    Parameters
+    ----------
+    query : the query string
+
+    weight_mode={None, 'sq', 'exp'}, default 'exp'
+        * None: do not weight closer matches
+        * 'sq': apply parabolic weighting to the similarity scores
+        * 'exp': apply exponential weighting to the similarity scores
+
+    """
+    if low_memory:
+        search = search_lowmem
+        ## We don't store the entire table "geonames" in RAM. Instead, evey time we query the database
+
+    else:
+        print("not implemented")
