@@ -50,6 +50,7 @@ def connect_to_db():
 
 def search(query, k=10):
     "The rapid fuzzy search"
+    
     if detect_language(query) is not None:
         query = slugify(query)
     scores = {}  # container for match scores for each city
@@ -76,14 +77,18 @@ def search(query, k=10):
     return result
 
 
-def search_lowmem(query, k: int=10, weight_mode: str="exp", ):
+def search_lowmem(
+    query,
+    k: int = 10,
+    weight_mode: str = "exp",
+):
     """
     Perform a low-memory fuzzy search for cities based on a given query.
 
     Parameters:
     - query (str): The search query, representing the city name or an alternative name.
     - k (int, optional): The number of top matching cities to retrieve. Defaults to 10.
-    - weight_mode={None, 'sq', 'exp'} (str, optional): 
+    - weight_mode={None, 'sq', 'exp'} (str, optional):
         * None: do not weight closer matches
         * 'sq': apply parabolic weighting to the similarity scores
         * 'exp': apply exponential weighting to the similarity scores
@@ -110,6 +115,8 @@ def search_lowmem(query, k: int=10, weight_mode: str="exp", ):
     """
 
     global engine
+    global d
+
     if detect_language(query) is not None:
         query = slugify(query)
     scores = {}  # container for match scores for each city
